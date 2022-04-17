@@ -1,5 +1,13 @@
 import { IExports } from "./types";
-import { canvas, context } from "./ui";
+import { canvas, context, runButton, stepButton } from "./ui";
+
+let isRunning = false;
+runButton.innerHTML = "Start";
+runButton.addEventListener("click", () => {
+  isRunning = !isRunning;
+  runButton.innerHTML = isRunning ? "Stop" : "Start";
+  stepButton.disabled = isRunning;
+});
 
 const SCALE_OFFSET = 2;
 let width: number = 0,
@@ -54,6 +62,9 @@ WebAssembly.instantiateStreaming(fetch("build/debug.wasm"), importObject).then(
     onResize();
 
     new ResizeObserver(onResize).observe(canvas);
+    stepButton.onclick = () => {
+      exports.step();
+    };
 
     exports.fillRandomly();
 
@@ -61,10 +72,12 @@ WebAssembly.instantiateStreaming(fetch("build/debug.wasm"), importObject).then(
       exports.drawAtPos(e.clientX >>> SCALE_OFFSET, e.clientY >>> SCALE_OFFSET);
     });
 
-    // (function update() {
-    //   setTimeout(update, 1000 / 30);
-    //   exports.step();
-    // })();
+    (function update() {
+      setTimeout(update, 1000 / 30);
+      if (isRunning) {
+        exports.step();
+      }
+    })();
 
     // Render
     (function render() {
