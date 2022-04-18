@@ -2,7 +2,6 @@ import * as __import0 from "config";
 async function instantiate(module, imports = {}) {
   const __module0 = imports.config;
   const adaptedImports = {
-    config: __module0,
     env: Object.assign(Object.create(globalThis), imports.env || {}, {
       seed() {
         // ~lib/builtins/seed() => f64
@@ -12,16 +11,15 @@ async function instantiate(module, imports = {}) {
         })();
       },
     }),
+    config: __module0,
   };
   const { exports } = await WebAssembly.instantiate(module, adaptedImports);
   return exports;
 }
 export const {
   init,
-  drawAtPos,
-  fillRandomly,
   step,
-  recalculateMemory
+  drawAtPos
 } = await (async url => instantiate(
   await (
     typeof globalThis.fetch === "function"

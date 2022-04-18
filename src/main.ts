@@ -2,6 +2,10 @@ import { IExports } from "./types";
 import { canvas, context, runButton, stepButton } from "./ui";
 
 let isRunning = false;
+const RGB_ALIVE = 0xfd9925;
+const RGB_DEAD = 0x212121;
+const BIT_ROT = 10;
+const bcr = canvas.getBoundingClientRect();
 runButton.innerHTML = "Start";
 runButton.addEventListener("click", () => {
   isRunning = !isRunning;
@@ -9,26 +13,19 @@ runButton.addEventListener("click", () => {
   stepButton.disabled = isRunning;
 });
 
-const SCALE_OFFSET = 2;
-let width: number = 0,
-  height: number = 0,
-  size: number = 0,
-  byteSize: number = 0;
+const SIZE_BIT_OFFSET = 4; // shifts all the bits
 
-const calculateSizes = () => {
-  height = canvas.offsetHeight >>> SCALE_OFFSET;
-  width = canvas.offsetWidth >>> SCALE_OFFSET;
-  canvas.width = width;
-  canvas.height = height;
-  size = width * height;
-  byteSize = (size + size) << 2;
-};
+// 2px per cell
+const width = bcr.width >>> SIZE_BIT_OFFSET;
+const height = bcr.height >>> SIZE_BIT_OFFSET;
+const size = width * height;
+const byteSize = (size * 2) << 2; // 4b per cell
+canvas.width = width;
+canvas.height = height;
 context.imageSmoothingEnabled = false;
 
-// Compute the size of and instantiate the module's memory
-// Pages are 64kb. Rounds up using mask 0xffff before shifting to pages.
 const memory = new WebAssembly.Memory({
-  initial: ((byteSize + 0xffff) & ~0xffff) >>> 16, // or we can use just a number of pages, e.g 1 is equal to 64KiB
+  initial: ((byteSize + 0xffff) & ~0xffff) >>> 16,
 });
 const importObject = {
   env: {
@@ -41,49 +38,86 @@ const importObject = {
     log: console.log,
   },
   config: {
-    EXAMPLE_COLOR: 0xff901e00, // little endian, LSB must be set
+    BGR_ALIVE: rgb2bgr(RGB_ALIVE) | 1, // little endian, LSB must be set
+    BGR_DEAD: rgb2bgr(RGB_DEAD) & ~1, // little endian, LSB must not be set
+    BIT_ROT,
   },
+  Math,
 };
 
+// @ts-ignore
 WebAssembly.instantiateStreaming(fetch("build/debug.wasm"), importObject).then(
   (module) => {
     const exports = module.instance.exports as IExports;
-    let imageData: ImageData;
-    let viewData: Uint32Array;
-    let memoryBuffer: Uint32Array;
+    let pressed = false;
 
-    const onResize = () => {
-      calculateSizes();
-      exports.recalculateMemory(width, height);
-      memoryBuffer = new Uint32Array(memory.buffer);
-      imageData = context.createImageData(width, height);
-      viewData = new Uint32Array(imageData.data.buffer);
-    };
-    onResize();
+    exports.init(width, height);
 
-    new ResizeObserver(onResize).observe(canvas);
+    const memoryBuffer = new Uint32Array(memory.buffer);
+
     stepButton.onclick = () => {
+      memoryBuffer.copyWithin(0, size, size + size);
       exports.step();
     };
-
-    exports.fillRandomly();
-
-    canvas.addEventListener("mousedown", (e) => {
-      exports.drawAtPos(e.clientX >>> SCALE_OFFSET, e.clientY >>> SCALE_OFFSET);
-    });
 
     (function update() {
       setTimeout(update, 1000 / 30);
       if (isRunning) {
-        exports.step();
+        memoryBuffer.copyWithin(0, size, size + size); // copy output to input
+        exports.step(); // perform the next step
       }
     })();
 
-    // Render
+    // Keep rendering the output at [size, 2*size]
+    const imageData = context.createImageData(width, height);
+    const argb = new Uint32Array(imageData.data.buffer);
     (function render() {
       requestAnimationFrame(render);
-      viewData.set(memoryBuffer.subarray(0, width * height)); // copy output to image buffer
+      argb.set(memoryBuffer.subarray(size, size + size)); // copy output to image buffer
       context.putImageData(imageData, 0, 0); // apply image buffer
     })();
+
+    // canvas.addEventListener("mousedown", ({ x, y }) => {
+    //   memoryBuffer.copyWithin(0, size, size + size);
+    //   exports.drawAtPos(x >>> SIZE_BIT_OFFSET, y >>> SIZE_BIT_OFFSET);
+    // });
+
+    [
+      [canvas, "mousedown"],
+      [canvas, "touchstart"],
+    ].forEach((eh: [HTMLCanvasElement, string]) =>
+      eh[0].addEventListener(eh[1], () => (pressed = true))
+    );
+    [
+      [document, "mouseup"],
+      [document, "touchend"],
+    ].forEach((eh: [Document, string]) =>
+      eh[0].addEventListener(eh[1], () => (pressed = false))
+    );
+    [
+      [canvas, "mousemove"],
+      [canvas, "touchmove"],
+      [canvas, "mousedown"],
+    ].forEach((eh: [HTMLCanvasElement, string]) =>
+      eh[0].addEventListener(eh[1], (e: Event | TouchEvent) => {
+        if (!pressed) return;
+        let event;
+        if ("touches" in e) {
+          if (e.touches.length > 1) return;
+          event = e.touches[0];
+        } else {
+          event = e;
+        }
+        memoryBuffer.copyWithin(0, size, size + size);
+        exports.drawAtPos(
+          event.x >>> SIZE_BIT_OFFSET,
+          event.y >>> SIZE_BIT_OFFSET
+        );
+      })
+    );
   }
 );
+
+function rgb2bgr(rgb) {
+  return ((rgb >>> 16) & 0xff) | (rgb & 0xff00) | ((rgb & 0xff) << 16);
+}

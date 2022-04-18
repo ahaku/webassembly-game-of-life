@@ -3,4 +3,5 @@ export interface IExports extends WebAssembly.Exports {
   fillRandomly: CallableFunction;
   drawAtPos: CallableFunction;
   step: CallableFunction;
+  init: CallableFunction;
 }
