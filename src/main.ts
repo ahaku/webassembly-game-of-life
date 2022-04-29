@@ -1,6 +1,15 @@
 import { IExports } from "./types";
-import { canvas, context, runButton, stepButton } from "./ui";
+import {
+  canvas,
+  context,
+  runButton,
+  saveButton,
+  savesSelect,
+  stepButton,
+  updateSelectOptions,
+} from "./ui";
 import loader from "@assemblyscript/loader";
+import { db } from "./db";
 
 let isRunning = false;
 const RGB_ALIVE = 0xfd9925;
@@ -57,6 +66,25 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     memoryBuffer.copyWithin(0, size, size + size);
     exports.step();
   };
+
+  updateSelectOptions();
+
+  savesSelect.onchange = (e) => {
+    const id = Number((<HTMLSelectElement>e.target).value);
+    db.transaction("r", db.saves, async () => {
+      const { data } = await db.saves.get(id);
+      memoryBuffer.fill(0);
+      memoryBuffer.set(data);
+    });
+  };
+
+  saveButton.onclick = () => {
+    const copy = new Uint32Array(memory.buffer.slice(0, byteSize));
+    db.saves.put({ data: copy, stamp: new Date().toString() }).then(() => {
+      updateSelectOptions();
+    });
+  };
+
   (function update() {
     setTimeout(update, 1000 / 30);
     if (isRunning) {

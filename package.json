@@ -18,6 +18,7 @@
     "vite": "^2.9.2"
   },
   "dependencies": {
-    "@assemblyscript/loader": "^0.20.6"
+    "@assemblyscript/loader": "^0.20.6",
+    "dexie": "^3.2.2"
   }
 }
