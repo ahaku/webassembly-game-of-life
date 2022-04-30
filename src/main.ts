@@ -1,6 +1,7 @@
 import { IExports } from "./types";
 import {
   canvas,
+  clearButton,
   context,
   runButton,
   saveButton,
@@ -67,6 +68,10 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     exports.step();
   };
 
+  clearButton.onclick = () => {
+    memoryBuffer.fill(0);
+  };
+
   updateSelectOptions();
 
   savesSelect.onchange = (e) => {
@@ -79,8 +84,10 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
   };
 
   saveButton.onclick = () => {
-    const copy = new Uint32Array(memory.buffer.slice(0, byteSize));
-    db.saves.put({ data: copy, stamp: new Date().toString() }).then(() => {
+    const copy = new Uint32Array(memory.buffer.slice(0));
+    const date = new Date();
+    const stamp = `${date.toDateString()} | ${date.toLocaleTimeString()}`;
+    db.saves.put({ data: copy, stamp }).then(() => {
       updateSelectOptions();
     });
   };
