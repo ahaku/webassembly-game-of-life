@@ -41,7 +41,8 @@ const memory = new WebAssembly.Memory({
 const importObject = {
   env: {
     memory,
-    abort: function () {},
+    abort: (msg, _file, line, column) =>
+      console.error(`Error at ${line}:${column}`, msg),
     _log: console.log,
     seed: Math.random,
   },
