@@ -17,6 +17,9 @@ export const savesSelect = document.querySelector(
 export const clearButton = document.querySelector(
   ".clear-btn"
 ) as HTMLButtonElement;
+export const dropButton = document.querySelector(
+  ".drop-btn"
+) as HTMLButtonElement;
 
 export const updateSelectOptions = () => {
   db.transaction("r", db.saves, async () => {
@@ -27,7 +30,6 @@ export const updateSelectOptions = () => {
     defaultOption.hidden = true;
     defaultOption.disabled = true;
     defaultOption.value = "";
-    defaultOption.text = "Choose one";
     savesSelect.appendChild(defaultOption);
 
     saves.forEach(({ stamp, id }) => {
@@ -36,5 +38,8 @@ export const updateSelectOptions = () => {
       optionNode.text = `#${id} ${stamp}`;
       savesSelect.appendChild(optionNode);
     });
+
+    defaultOption.text = saves.length ? "Choose one" : "Save something";
+    savesSelect.disabled = saves.length < 1;
   });
 };

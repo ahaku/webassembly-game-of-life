@@ -3,6 +3,7 @@ import {
   canvas,
   clearButton,
   context,
+  dropButton,
   runButton,
   saveButton,
   savesSelect,
@@ -89,6 +90,12 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     const date = new Date();
     const stamp = `${date.toDateString()} | ${date.toLocaleTimeString()}`;
     db.saves.put({ data: copy, stamp }).then(() => {
+      updateSelectOptions();
+    });
+  };
+
+  dropButton.onclick = () => {
+    db.saves.clear().then(() => {
       updateSelectOptions();
     });
   };
