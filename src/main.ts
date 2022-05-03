@@ -115,6 +115,10 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
   //   exports.drawAtPos(x >>> SIZE_BIT_OFFSET, y >>> SIZE_BIT_OFFSET);
   // });
 
+  const pixelsOnCell = canvas.clientWidth / width;
+  let prevX = null;
+  let prevY = null;
+
   [
     [canvas, "mousedown"],
     [canvas, "touchstart"],
@@ -125,7 +129,11 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     [document, "mouseup"],
     [document, "touchend"],
   ].forEach((eh: [Document, string]) =>
-    eh[0].addEventListener(eh[1], () => (pressed = false))
+    eh[0].addEventListener(eh[1], () => {
+      pressed = false;
+      prevX = null;
+      prevY = null;
+    })
   );
   [
     [canvas, "mousemove"],
@@ -141,11 +149,18 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
       } else {
         event = e;
       }
-      memoryBuffer.copyWithin(0, size, size + size);
-      exports.drawAtPos(
-        event.x >>> SIZE_BIT_OFFSET,
-        event.y >>> SIZE_BIT_OFFSET
-      );
+
+      const currentCellX = (event.x / pixelsOnCell) >>> 0;
+      const currentCellY = (event.y / pixelsOnCell) >>> 0;
+      if (currentCellX !== prevX || currentCellY !== prevY) {
+        prevX = currentCellX;
+        prevY = currentCellY;
+        memoryBuffer.copyWithin(0, size, size + size);
+        exports.drawAtPos(
+          event.x >>> SIZE_BIT_OFFSET,
+          event.y >>> SIZE_BIT_OFFSET
+        );
+      }
     })
   );
 });

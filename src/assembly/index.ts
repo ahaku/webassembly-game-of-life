@@ -83,12 +83,10 @@ export function step(): void {
 }
 
 export function drawAtPos(x: u32, y: u32): void {
-  set(x, y, BGR_ALIVE | 0xff000000)
-
-  // const self = get(x, y)
-  // if (self & 1) {
-  //   set(x, y, BGR_DEAD  & 0x00ffffff)
-  // } else {
-  //   set(x, y, BGR_ALIVE | 0xff000000)
-  // }
+  const self = get(x, y)
+  if (self & 1) {
+    set(x, y, BGR_DEAD  & 0x00ffffff)
+  } else {
+    set(x, y, BGR_ALIVE | 0xff000000)
+  }
 }

@@ -627,25 +627,64 @@
   (local $2 i32)
   (local $3 i32)
   (local $4 i32)
+  (local $5 i32)
   local.get $0
-  local.set $4
-  local.get $1
   local.set $3
-  global.get $src/assembly/config/BGR_ALIVE
-  i32.const -16777216
-  i32.or
+  local.get $1
   local.set $2
-  global.get $src/assembly/index/offset
-  local.get $3
+  local.get $2
   global.get $src/assembly/index/width
   i32.mul
-  i32.add
-  local.get $4
+  local.get $3
   i32.add
   i32.const 2
   i32.shl
-  local.get $2
-  i32.store
+  i32.load
+  local.set $3
+  local.get $3
+  i32.const 1
+  i32.and
+  if
+   local.get $0
+   local.set $5
+   local.get $1
+   local.set $4
+   global.get $src/assembly/config/BGR_DEAD
+   i32.const 16777215
+   i32.and
+   local.set $2
+   global.get $src/assembly/index/offset
+   local.get $4
+   global.get $src/assembly/index/width
+   i32.mul
+   i32.add
+   local.get $5
+   i32.add
+   i32.const 2
+   i32.shl
+   local.get $2
+   i32.store
+  else
+   local.get $0
+   local.set $5
+   local.get $1
+   local.set $4
+   global.get $src/assembly/config/BGR_ALIVE
+   i32.const -16777216
+   i32.or
+   local.set $2
+   global.get $src/assembly/index/offset
+   local.get $4
+   global.get $src/assembly/index/width
+   i32.mul
+   i32.add
+   local.get $5
+   i32.add
+   i32.const 2
+   i32.shl
+   local.get $2
+   i32.store
+  end
  )
  (func $~lib/rt/itcms/Object#set:nextWithColor (param $0 i32) (param $1 i32)
   local.get $0
