@@ -8,7 +8,7 @@
     <title>WASM Game of Life</title>
   </head>
   <body>
-    <canvas></canvas>
+    <canvas class="main-canvas"></canvas>
     <div class="controls">
       <button class="run-btn"></button>
       <button class="step-btn">Step</button>
@@ -16,6 +16,9 @@
       <button class="save-btn">Save</button>
       <select name="" id="saves"></select>
       <button class="drop-btn">Delete all</button>
+    </div>
+    <div class="zoom-container">
+      <canvas class="zoom-canvas"></canvas>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

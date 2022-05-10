@@ -1,7 +1,16 @@
 import { db } from "./db";
 
-export const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+export const canvas = document.querySelector(
+  ".main-canvas"
+) as HTMLCanvasElement;
 export const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+export const zoomContainer = document.querySelector(
+  ".zoom-container"
+) as HTMLDivElement;
+export const zoomCanvas = document.querySelector(
+  ".zoom-canvas"
+) as HTMLCanvasElement;
+export const zoomContext = zoomCanvas.getContext("2d");
 export const runButton = document.querySelector(
   ".run-btn"
 ) as HTMLButtonElement;

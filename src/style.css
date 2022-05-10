@@ -1,7 +1,4 @@
 canvas {
-  position: absolute;
-  top: 0px;
-  left: 0px;
   width: 100%;
   height: 100%;
   background: #212121;
@@ -17,6 +14,11 @@ canvas {
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
 }
+.main-canvas {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+}
 .controls {
   position: absolute;
   z-index: 1;
@@ -27,4 +29,32 @@ canvas {
 }
 .controls:hover {
   opacity: 1;
+}
+.zoom-container {
+  box-sizing: border-box;
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  border: 1px dashed lightblue;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.zoom-container::after,
+.zoom-container::before {
+  position: absolute;
+  content: "";
+  background-color: lightblue;
+  opacity: 0.5;
+}
+.zoom-container::after {
+  width: 2px;
+  height: 100%;
+  top: 0;
+  left: 50%;
+}
+.zoom-container::before {
+  width: 100%;
+  height: 2px;
+  top: 50%;
+  left: 0;
 }
