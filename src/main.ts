@@ -15,37 +15,38 @@ import {
 } from "./ui";
 import loader from "@assemblyscript/loader";
 import { db } from "./db";
+import state from "./state";
 
-let isRunning = false;
-const RGB_ALIVE = 0xfd9925;
-const RGB_DEAD = 0x212121;
-const BIT_ROT = 10;
+state.set("isRunning", false);
+state.set("RGB_ALIVE", 0xfd9925);
+state.set("RGB_DEAD", 0x212121);
+const BIT_ROT = 10; // todo ROT
 const bcr = canvas.getBoundingClientRect();
 runButton.innerHTML = "Start";
 runButton.addEventListener("click", () => {
-  isRunning = !isRunning;
-  runButton.innerHTML = isRunning ? "Stop" : "Start";
-  stepButton.disabled = isRunning;
+  state.set("isRunning", !state.isRunning);
+  runButton.innerHTML = state.isRunning ? "Stop" : "Start";
+  stepButton.disabled = state.isRunning;
 });
 
-const SIZE_BIT_OFFSET = 4; // shifts all the bits
+state.set("SIZE_BIT_OFFSET", 4); // shifts all the bits
 
 // 2px per cell
-const width = bcr.width >>> SIZE_BIT_OFFSET;
-const height = bcr.height >>> SIZE_BIT_OFFSET;
-const size = width * height;
-const byteSize = (size * 2) << 2; // 4b per cell
-canvas.width = width;
-canvas.height = height;
+state.set("width", bcr.width >>> state.SIZE_BIT_OFFSET);
+state.set("height", bcr.height >>> state.SIZE_BIT_OFFSET);
+state.set("size", state.width * state.height);
+state.set("byteSize", (state.size * 2) << 2); // 4b per cell
+canvas.width = state.width;
+canvas.height = state.height;
 context.imageSmoothingEnabled = false;
 zoomContainer.style.width = "200px";
 zoomContainer.style.height = "200px";
-zoomCanvas.width = width;
-zoomCanvas.height = height;
+zoomCanvas.width = state.width;
+zoomCanvas.height = state.height;
 zoomContext.imageSmoothingEnabled = false;
 
 const memory = new WebAssembly.Memory({
-  initial: ((byteSize + 0xffff) & ~0xffff) >>> 16,
+  initial: ((state.byteSize + 0xffff) & ~0xffff) >>> 16,
 });
 const importObject = {
   env: {
@@ -59,22 +60,22 @@ const importObject = {
     log: console.log,
   },
   config: {
-    BGR_ALIVE: rgb2bgr(RGB_ALIVE) | 1, // little endian, LSB must be set
-    BGR_DEAD: rgb2bgr(RGB_DEAD) & ~1, // little endian, LSB must not be set
+    BGR_ALIVE: rgb2bgr(state.RGB_ALIVE) | 1, // little endian, LSB must be set
+    BGR_DEAD: rgb2bgr(state.RGB_DEAD) & ~1, // little endian, LSB must not be set
     BIT_ROT,
   },
   // Math,
 };
 loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
   const exports = module.exports as IExports;
-  let pressed = false;
+  state.set("pressed", false);
 
-  exports.init(width, height);
+  exports.init(state.width, state.height);
 
   const memoryBuffer = new Uint32Array(memory.buffer);
 
   stepButton.onclick = () => {
-    memoryBuffer.copyWithin(0, size, size + size);
+    memoryBuffer.copyWithin(0, state.size, state.size + state.size);
     exports.step();
   };
   function clearCanvas() {
@@ -116,42 +117,34 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
 
   (function update() {
     setTimeout(update, 1000 / 30);
-    if (isRunning) {
-      memoryBuffer.copyWithin(0, size, size + size); // copy output to input
+    if (state.isRunning) {
+      memoryBuffer.copyWithin(0, state.size, state.size + state.size); // copy output to input
       exports.step(); // perform the next step
     }
   })();
   const canvasRatio = canvas.width / canvas.height;
-  const SUB_WIDTH = 50;
-  const ZOOM_CANVAS_OFFSET = 17_600;
-  const pixelsOnCell = canvas.clientWidth / width;
-  const positions = {
-    prevX: null,
-    prevY: null,
-    mouseX: 0,
-    mouseY: 0,
-  };
+  const pixelsOnCell = canvas.clientWidth / state.width;
 
   // Keep rendering the output at [size, 2*size]
-  const imageData = context.createImageData(width, height);
+  const imageData = context.createImageData(state.width, state.height);
   const argb = new Uint32Array(imageData.data.buffer);
 
   (function render() {
     requestAnimationFrame(render);
-    argb.set(memoryBuffer.subarray(size, size + size)); // copy output to image buffer
+    argb.set(memoryBuffer.subarray(state.size, state.size + state.size)); // copy output to image buffer
     context.putImageData(imageData, 0, 0); // apply image buffer
     // canvasCopyContext.putImageData(imageData, 0, 0);
 
     zoomContext.drawImage(
       canvas,
-      positions.mouseX - 2,
-      positions.mouseY - 2,
-      SUB_WIDTH,
-      SUB_WIDTH * canvasRatio,
+      state.positions.mouseX - 2,
+      state.positions.mouseY - 2,
+      state.SUB_WIDTH,
+      state.SUB_WIDTH * canvasRatio,
       0,
       0,
-      canvas.width + (ZOOM_CANVAS_OFFSET >>> SIZE_BIT_OFFSET),
-      canvas.width + (ZOOM_CANVAS_OFFSET >>> SIZE_BIT_OFFSET)
+      canvas.width + (state.ZOOM_CANVAS_OFFSET >>> state.SIZE_BIT_OFFSET),
+      canvas.width + (state.ZOOM_CANVAS_OFFSET >>> state.SIZE_BIT_OFFSET)
     );
   })();
 
@@ -159,16 +152,16 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     [canvas, "mousedown"],
     [canvas, "touchstart"],
   ].forEach((eh: [HTMLCanvasElement, string]) =>
-    eh[0].addEventListener(eh[1], () => (pressed = true))
+    eh[0].addEventListener(eh[1], () => (state.pressed = true))
   );
   [
     [document, "mouseup"],
     [document, "touchend"],
   ].forEach((eh: [Document, string]) =>
     eh[0].addEventListener(eh[1], () => {
-      pressed = false;
-      positions.prevX = null;
-      positions.prevY = null;
+      state.pressed = false;
+      state.positions.prevX = null;
+      state.positions.prevY = null;
     })
   );
   [
@@ -187,20 +180,20 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
 
       const currentCellX = (event.x / pixelsOnCell) >>> 0;
       const currentCellY = (event.y / pixelsOnCell) >>> 0;
-      positions.mouseX = currentCellX;
-      positions.mouseY = currentCellY;
+      state.positions.mouseX = currentCellX;
+      state.positions.mouseY = currentCellY;
       zoomContext.clearRect(0, 0, canvas.width, canvas.height);
-      if (!pressed) return;
+      if (!state.pressed) return;
       if (
-        currentCellX !== positions.prevX ||
-        currentCellY !== positions.prevY
+        currentCellX !== state.positions.prevX ||
+        currentCellY !== state.positions.prevY
       ) {
-        positions.prevX = currentCellX;
-        positions.prevY = currentCellY;
-        memoryBuffer.copyWithin(0, size, size + size);
+        state.positions.prevX = currentCellX;
+        state.positions.prevY = currentCellY;
+        memoryBuffer.copyWithin(0, state.size, state.size + state.size);
         exports.drawAtPos(
-          event.x >>> SIZE_BIT_OFFSET,
-          event.y >>> SIZE_BIT_OFFSET
+          event.x >>> state.SIZE_BIT_OFFSET,
+          event.y >>> state.SIZE_BIT_OFFSET
         );
       }
     })
