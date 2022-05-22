@@ -20,7 +20,6 @@ import state from "./state";
 state.set("isRunning", false);
 state.set("RGB_ALIVE", 0xfd9925);
 state.set("RGB_DEAD", 0x212121);
-const BIT_ROT = 10; // todo ROT
 const bcr = canvas.getBoundingClientRect();
 runButton.innerHTML = "Start";
 runButton.addEventListener("click", () => {
@@ -62,7 +61,6 @@ const importObject = {
   config: {
     BGR_ALIVE: rgb2bgr(state.RGB_ALIVE) | 1, // little endian, LSB must be set
     BGR_DEAD: rgb2bgr(state.RGB_DEAD) & ~1, // little endian, LSB must not be set
-    BIT_ROT,
   },
   // Math,
 };
@@ -93,7 +91,6 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     const id = Number((<HTMLSelectElement>e.target).value);
     db.transaction("r", db.saves, async () => {
       const { data } = await db.saves.get(id);
-      // todo check resolution
       clearCanvas();
       memoryBuffer.set(data);
     });
@@ -102,7 +99,6 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
   saveButton.onclick = () => {
     const copy = new Uint32Array(memory.buffer.slice(0));
     const date = new Date();
-    // todo save resolution
     const stamp = `${date.toDateString()} | ${date.toLocaleTimeString()}`;
     db.saves.put({ data: copy, stamp }).then(() => {
       updateSelectOptions();
@@ -133,7 +129,6 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
     requestAnimationFrame(render);
     argb.set(memoryBuffer.subarray(state.size, state.size + state.size)); // copy output to image buffer
     context.putImageData(imageData, 0, 0); // apply image buffer
-    // canvasCopyContext.putImageData(imageData, 0, 0);
 
     zoomContext.drawImage(
       canvas,

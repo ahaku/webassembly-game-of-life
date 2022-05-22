@@ -1,7 +1,7 @@
 // see: https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life
 
 // Configuration imported from JS
-import { BGR_ALIVE, BGR_DEAD, BIT_ROT } from "./config";
+import { BGR_ALIVE, BGR_DEAD } from "./config";
 
 // @ts-ignore: decorator
 @external('imports', 'log')
