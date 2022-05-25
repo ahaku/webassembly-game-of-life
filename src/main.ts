@@ -22,11 +22,12 @@ state.set("RGB_ALIVE", 0xfd9925);
 state.set("RGB_DEAD", 0x212121);
 const bcr = canvas.getBoundingClientRect();
 runButton.innerHTML = "Start";
-runButton.addEventListener("click", () => {
+const toggleRun = () => {
   state.set("isRunning", !state.isRunning);
   runButton.innerHTML = state.isRunning ? "Stop" : "Start";
   stepButton.disabled = state.isRunning;
-});
+};
+runButton.addEventListener("click", toggleRun);
 
 state.set("SIZE_BIT_OFFSET", 4); // shifts all the bits
 
@@ -72,10 +73,11 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
 
   const memoryBuffer = new Uint32Array(memory.buffer);
 
-  stepButton.onclick = () => {
+  const doStep = () => {
     memoryBuffer.copyWithin(0, state.size, state.size + state.size);
     exports.step();
   };
+  stepButton.onclick = doStep;
   function clearCanvas() {
     memoryBuffer.fill(0);
     zoomContext.clearRect(0, 0, canvas.width, canvas.height);
@@ -193,6 +195,20 @@ loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
       }
     })
   );
+
+  document.addEventListener("keypress", (e) => {
+    const { code } = e;
+    switch (code) {
+      case "Space":
+        toggleRun();
+        break;
+      case "KeyS":
+        doStep();
+        break;
+      default:
+        break;
+    }
+  });
 });
 
 function rgb2bgr(rgb) {
