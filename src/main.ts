@@ -1,39 +1,59 @@
 import { IExports } from "./types";
-import { canvas, context, runButton, stepButton } from "./ui";
+import {
+  canvas,
+  clearButton,
+  context,
+  dropButton,
+  runButton,
+  saveButton,
+  savesSelect,
+  stepButton,
+  updateSelectOptions,
+  zoomCanvas,
+  zoomContainer,
+  zoomContext,
+} from "./ui";
+import loader from "@assemblyscript/loader";
+import { db } from "./db";
+import state from "./state";
 
-let isRunning = false;
+state.set("isRunning", false);
 runButton.innerHTML = "Start";
-runButton.addEventListener("click", () => {
-  isRunning = !isRunning;
-  runButton.innerHTML = isRunning ? "Stop" : "Start";
-  stepButton.disabled = isRunning;
-});
-
-const SCALE_OFFSET = 2;
-let width: number = 0,
-  height: number = 0,
-  size: number = 0,
-  byteSize: number = 0;
-
-const calculateSizes = () => {
-  height = canvas.offsetHeight >>> SCALE_OFFSET;
-  width = canvas.offsetWidth >>> SCALE_OFFSET;
-  canvas.width = width;
-  canvas.height = height;
-  size = width * height;
-  byteSize = (size + size) << 2;
+state.set("RGB_ALIVE", 0xfd9925);
+state.set("RGB_DEAD", 0x212121);
+const bcr = canvas.getBoundingClientRect();
+const toggleRun = () => {
+  state.set("isRunning", !state.isRunning);
+  runButton.innerHTML = state.isRunning ? "Stop" : "Start";
+  stepButton.disabled = state.isRunning;
+  runButton.blur();
 };
-context.imageSmoothingEnabled = false;
+runButton.addEventListener("click", toggleRun);
 
-// Compute the size of and instantiate the module's memory
-// Pages are 64kb. Rounds up using mask 0xffff before shifting to pages.
+state.set("SIZE_BIT_OFFSET", 2); // shifts all the bits
+
+// 2px per cell
+state.set("width", bcr.width >>> state.SIZE_BIT_OFFSET);
+state.set("height", bcr.height >>> state.SIZE_BIT_OFFSET);
+state.set("size", state.width * state.height);
+state.set("byteSize", (state.size * 2) << 2); // 4b per cell
+canvas.width = state.width;
+canvas.height = state.height;
+context.imageSmoothingEnabled = false;
+zoomContainer.style.width = "200px";
+zoomContainer.style.height = "200px";
+zoomCanvas.width = state.width;
+zoomCanvas.height = state.height;
+zoomContext.imageSmoothingEnabled = false;
+
 const memory = new WebAssembly.Memory({
-  initial: ((byteSize + 0xffff) & ~0xffff) >>> 16, // or we can use just a number of pages, e.g 1 is equal to 64KiB
+  initial: ((state.byteSize + 0xffff) & ~0xffff) >>> 16,
 });
 const importObject = {
   env: {
     memory,
-    abort: function () {},
+    abort: (msg, _file, line, column) =>
+      console.error(`Error at ${line}:${column}`, msg),
     _log: console.log,
     seed: Math.random,
   },
@@ -41,49 +61,157 @@ const importObject = {
     log: console.log,
   },
   config: {
-    EXAMPLE_COLOR: 0xff901e00, // little endian, LSB must be set
+    BGR_ALIVE: rgb2bgr(state.RGB_ALIVE) | 1, // little endian, LSB must be set
+    BGR_DEAD: rgb2bgr(state.RGB_DEAD) & ~1, // little endian, LSB must not be set
   },
+  // Math,
 };
+loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
+  const exports = module.exports as IExports;
+  state.set("pressed", false);
 
-WebAssembly.instantiateStreaming(fetch("build/debug.wasm"), importObject).then(
-  (module) => {
-    const exports = module.instance.exports as IExports;
-    let imageData: ImageData;
-    let viewData: Uint32Array;
-    let memoryBuffer: Uint32Array;
+  exports.init(state.width, state.height);
 
-    const onResize = () => {
-      calculateSizes();
-      exports.recalculateMemory(width, height);
-      memoryBuffer = new Uint32Array(memory.buffer);
-      imageData = context.createImageData(width, height);
-      viewData = new Uint32Array(imageData.data.buffer);
-    };
-    onResize();
+  const memoryBuffer = new Uint32Array(memory.buffer);
 
-    new ResizeObserver(onResize).observe(canvas);
-    stepButton.onclick = () => {
-      exports.step();
-    };
-
-    exports.fillRandomly();
-
-    canvas.addEventListener("mousedown", (e) => {
-      exports.drawAtPos(e.clientX >>> SCALE_OFFSET, e.clientY >>> SCALE_OFFSET);
-    });
-
-    (function update() {
-      setTimeout(update, 1000 / 30);
-      if (isRunning) {
-        exports.step();
-      }
-    })();
-
-    // Render
-    (function render() {
-      requestAnimationFrame(render);
-      viewData.set(memoryBuffer.subarray(0, width * height)); // copy output to image buffer
-      context.putImageData(imageData, 0, 0); // apply image buffer
-    })();
+  const doStep = () => {
+    memoryBuffer.copyWithin(0, state.size, state.size + state.size);
+    exports.step();
+  };
+  stepButton.onclick = doStep;
+  function clearCanvas() {
+    memoryBuffer.fill(0);
+    zoomContext.clearRect(0, 0, canvas.width, canvas.height);
   }
-);
+
+  clearButton.onclick = () => {
+    clearCanvas();
+  };
+
+  updateSelectOptions();
+
+  savesSelect.onchange = (e) => {
+    const id = Number((<HTMLSelectElement>e.target).value);
+    db.transaction("r", db.saves, async () => {
+      const { data } = await db.saves.get(id);
+      clearCanvas();
+      memoryBuffer.set(data);
+    });
+  };
+
+  saveButton.onclick = () => {
+    const copy = new Uint32Array(memory.buffer.slice(0));
+    const date = new Date();
+    const stamp = `${date.toDateString()} | ${date.toLocaleTimeString()}`;
+    db.saves.put({ data: copy, stamp }).then(() => {
+      updateSelectOptions();
+    });
+  };
+
+  dropButton.onclick = () => {
+    db.saves.clear().then(() => {
+      updateSelectOptions();
+    });
+  };
+
+  (function update() {
+    setTimeout(update, 1000 / 30);
+    if (state.isRunning) {
+      memoryBuffer.copyWithin(0, state.size, state.size + state.size); // copy output to input
+      exports.step(); // perform the next step
+    }
+  })();
+  const canvasRatio = canvas.width / canvas.height;
+  const pixelsOnCell = canvas.clientWidth / state.width;
+
+  // Keep rendering the output at [size, 2*size]
+  const imageData = context.createImageData(state.width, state.height);
+  const argb = new Uint32Array(imageData.data.buffer);
+
+  (function render() {
+    requestAnimationFrame(render);
+    argb.set(memoryBuffer.subarray(state.size, state.size + state.size)); // copy output to image buffer
+    context.putImageData(imageData, 0, 0); // apply image buffer
+
+    zoomContext.drawImage(
+      canvas,
+      state.positions.mouseX - 2,
+      state.positions.mouseY - 2,
+      state.SUB_WIDTH,
+      state.SUB_WIDTH * canvasRatio,
+      0,
+      0,
+      canvas.width + (state.ZOOM_CANVAS_OFFSET >>> state.SIZE_BIT_OFFSET),
+      canvas.width + (state.ZOOM_CANVAS_OFFSET >>> state.SIZE_BIT_OFFSET)
+    );
+  })();
+
+  [
+    [canvas, "mousedown"],
+    [canvas, "touchstart"],
+  ].forEach((eh: [HTMLCanvasElement, string]) =>
+    eh[0].addEventListener(eh[1], () => (state.pressed = true))
+  );
+  [
+    [document, "mouseup"],
+    [document, "touchend"],
+  ].forEach((eh: [Document, string]) =>
+    eh[0].addEventListener(eh[1], () => {
+      state.pressed = false;
+      state.positions.prevX = null;
+      state.positions.prevY = null;
+    })
+  );
+  [
+    [canvas, "mousemove"],
+    [canvas, "touchmove"],
+    [canvas, "mousedown"],
+  ].forEach((eh: [HTMLCanvasElement, string]) =>
+    eh[0].addEventListener(eh[1], (e: Event | TouchEvent) => {
+      let event;
+      if ("touches" in e) {
+        if (e.touches.length > 1) return;
+        event = e.touches[0];
+      } else {
+        event = e;
+      }
+
+      const currentCellX = (event.x / pixelsOnCell) >>> 0;
+      const currentCellY = (event.y / pixelsOnCell) >>> 0;
+      state.positions.mouseX = currentCellX;
+      state.positions.mouseY = currentCellY;
+      zoomContext.clearRect(0, 0, canvas.width, canvas.height);
+      if (!state.pressed) return;
+      if (
+        currentCellX !== state.positions.prevX ||
+        currentCellY !== state.positions.prevY
+      ) {
+        state.positions.prevX = currentCellX;
+        state.positions.prevY = currentCellY;
+        memoryBuffer.copyWithin(0, state.size, state.size + state.size);
+        exports.drawAtPos(
+          event.x >>> state.SIZE_BIT_OFFSET,
+          event.y >>> state.SIZE_BIT_OFFSET
+        );
+      }
+    })
+  );
+
+  document.addEventListener("keypress", (e) => {
+    const { code } = e;
+    switch (code) {
+      case "Space":
+        toggleRun();
+        break;
+      case "KeyS":
+        doStep();
+        break;
+      default:
+        break;
+    }
+  });
+});
+
+function rgb2bgr(rgb) {
+  return ((rgb >>> 16) & 0xff) | (rgb & 0xff00) | ((rgb & 0xff) << 16);
+}

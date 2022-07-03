@@ -1,1 +1,2 @@
-export declare const EXAMPLE_COLOR: u32;
+export declare const BGR_ALIVE: u32;
+export declare const BGR_DEAD: u32;
