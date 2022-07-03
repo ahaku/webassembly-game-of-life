@@ -18,18 +18,19 @@ import { db } from "./db";
 import state from "./state";
 
 state.set("isRunning", false);
+runButton.innerHTML = "Start";
 state.set("RGB_ALIVE", 0xfd9925);
 state.set("RGB_DEAD", 0x212121);
 const bcr = canvas.getBoundingClientRect();
-runButton.innerHTML = "Start";
 const toggleRun = () => {
   state.set("isRunning", !state.isRunning);
   runButton.innerHTML = state.isRunning ? "Stop" : "Start";
   stepButton.disabled = state.isRunning;
+  runButton.blur();
 };
 runButton.addEventListener("click", toggleRun);
 
-state.set("SIZE_BIT_OFFSET", 4); // shifts all the bits
+state.set("SIZE_BIT_OFFSET", 2); // shifts all the bits
 
 // 2px per cell
 state.set("width", bcr.width >>> state.SIZE_BIT_OFFSET);
