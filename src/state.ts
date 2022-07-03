@@ -38,7 +38,4 @@ interface Positions {
 
 const state = new State();
 
-// @ts-ignore
-window.STATE = state; // todo remove
-
 export default state;
