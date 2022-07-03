@@ -66,7 +66,7 @@ const importObject = {
   },
   // Math,
 };
-loader.instantiate(fetch("build/debug.wasm"), importObject).then((module) => {
+loader.instantiate(fetch("build/release.wasm"), importObject).then((module) => {
   const exports = module.exports as IExports;
   state.set("pressed", false);
 

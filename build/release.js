@@ -51,7 +51,7 @@ export const {
   ), {
     config: __maybeDefault(__import0),
   }
-))(new URL("debug.wasm", import.meta.url));
+))(new URL("release.wasm", import.meta.url));
 function __maybeDefault(module) {
   return typeof module.default === "object" && Object.keys(module).length == 1
     ? module.default
