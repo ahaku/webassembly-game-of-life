@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && npm run asbuild:release ",
     "preview": "vite preview",
     "asbuild:debug": "asc src/assembly/index.ts --target debug --importMemory",
-    "asbuild:release": "asc src/assembly/index.ts --target release --importMemory",
+    "asbuild:release": "asc src/assembly/index.ts -o dist/build/release.wasm --target release --importMemory",
     "asbuild": "npm run asbuild:debug && npm run asbuild:release"
   },
   "author": "ahaku",
